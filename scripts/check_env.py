@@ -11,11 +11,11 @@ import sys
 
 
 PACKAGES = (
+    "unsloth",
     "torch",
     "datasets",
     "transformers",
     "trl",
-    "unsloth",
     "bitsandbytes",
     "peft",
 )

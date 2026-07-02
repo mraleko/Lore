@@ -108,6 +108,15 @@ python scripts/prepare_fable5_sft.py \
   --max-examples 20000
 ```
 
+For the first real run on the detected 8 GB GPU, start smaller if you want faster iteration:
+
+```bash
+python scripts/prepare_fable5_sft.py \
+  --dataset Nexlab/fable5-agentic-coding-sft \
+  --output-dir data/processed/fable5_2k \
+  --max-examples 2000
+```
+
 The output format is one JSON object per line:
 
 ```json
@@ -123,6 +132,33 @@ Run a small first training job:
 ```bash
 python scripts/train_unsloth_lora.py --config configs/qwen25_coder_7b_lora.json
 ```
+
+For the first non-smoke training run, use the 2k prepared split and a separate output dir:
+
+```bash
+python scripts/train_unsloth_lora.py \
+  --train-file data/processed/fable5_2k/train.jsonl \
+  --validation-file data/processed/fable5_2k/validation.jsonl \
+  --output-dir models/qwen25-coder-7b-fable5-2k-lora
+```
+
+Smoke-test the training stack with a tiny generated sample before running a full job:
+
+```bash
+python scripts/prepare_fable5_sft.py \
+  --dataset Nexlab/fable5-agentic-coding-sft \
+  --output-dir data/processed/fable5_sample \
+  --max-examples 5
+
+python scripts/train_unsloth_lora.py \
+  --train-file data/processed/fable5_sample/train.jsonl \
+  --validation-file data/processed/fable5_sample/validation.jsonl \
+  --output-dir models/smoke-qwen25-coder-lora \
+  --max-steps 1 \
+  --max-seq-length 1024
+```
+
+On the detected RTX 3060 Ti, the one-step smoke run completed successfully with about 40.4M trainable LoRA parameters.
 
 The default config is intentionally conservative for 8 GB VRAM.
 

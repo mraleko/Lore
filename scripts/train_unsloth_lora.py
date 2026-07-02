@@ -10,8 +10,7 @@ from typing import Any
 
 from datasets import load_dataset
 from unsloth import FastLanguageModel
-from trl import SFTTrainer
-from transformers import TrainingArguments
+from trl import SFTConfig, SFTTrainer
 
 
 def load_config(path: str) -> dict[str, Any]:
@@ -22,8 +21,17 @@ def load_config(path: str) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/qwen25_coder_7b_lora.json")
+    parser.add_argument("--train-file", help="Override training JSONL path")
+    parser.add_argument("--validation-file", help="Override validation JSONL path")
+    parser.add_argument("--output-dir", help="Override output directory")
+    parser.add_argument("--max-steps", type=int, help="Override max training steps")
+    parser.add_argument("--max-seq-length", type=int, help="Override max sequence length")
     args = parser.parse_args()
     cfg = load_config(args.config)
+    for key in ("train_file", "validation_file", "output_dir", "max_steps", "max_seq_length"):
+        value = getattr(args, key, None)
+        if value is not None:
+            cfg[key] = value
 
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=cfg["model_name"],
@@ -48,19 +56,23 @@ def main() -> None:
         data_files["validation"] = validation_file
     dataset = load_dataset("json", data_files=data_files)
 
-    def formatting_prompts_func(batch: dict[str, Any]) -> list[str]:
-        texts = []
-        for messages in batch["messages"]:
-            texts.append(tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False))
-        return texts
+    def format_messages(messages: list[dict[str, Any]]) -> str:
+        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
 
-    training_args = TrainingArguments(
+    def formatting_prompts_func(example: dict[str, Any]) -> list[str]:
+        messages = example["messages"]
+        if messages and isinstance(messages[0], dict):
+            return [format_messages(messages)]
+        return [format_messages(item) for item in messages]
+
+    training_args = SFTConfig(
         output_dir=cfg["output_dir"],
         per_device_train_batch_size=cfg["per_device_train_batch_size"],
         per_device_eval_batch_size=cfg["per_device_eval_batch_size"],
         gradient_accumulation_steps=cfg["gradient_accumulation_steps"],
         learning_rate=cfg["learning_rate"],
         num_train_epochs=cfg["num_train_epochs"],
+        max_steps=cfg.get("max_steps", -1),
         warmup_ratio=cfg["warmup_ratio"],
         weight_decay=cfg["weight_decay"],
         logging_steps=cfg["logging_steps"],
@@ -76,16 +88,16 @@ def main() -> None:
         bf16=False,
         eval_strategy="steps" if "validation" in dataset else "no",
         save_strategy="steps",
+        max_length=cfg["max_seq_length"],
+        packing=False,
     )
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=dataset["train"],
         eval_dataset=dataset.get("validation"),
         formatting_func=formatting_prompts_func,
-        max_seq_length=cfg["max_seq_length"],
-        packing=False,
         args=training_args,
     )
     trainer.train()

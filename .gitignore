@@ -8,12 +8,14 @@ data/processed/
 models/
 outputs/
 checkpoints/
+benchmarks/
 wandb/
 mlruns/
 
 # Hugging Face / training caches
 .cache/
 hf_cache/
+unsloth_compiled_cache/
 *.safetensors
 *.gguf
 *.bin
