@@ -1,0 +1,10 @@
+accelerate
+bitsandbytes
+datasets
+peft
+sentencepiece
+torch
+transformers
+trl
+unsloth
+wandb
