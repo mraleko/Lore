@@ -22,6 +22,21 @@ ROLE_MAP = {
     "tool": "tool",
 }
 
+BLOCKED_SUBSTRINGS = (
+    "<local-command-caveat>",
+    "<local-command-stdout>",
+    "<local-command-stderr>",
+    "<command-name>",
+    "api key:",
+    "api_key",
+    "gsk_",
+    "sk-",
+    "hf_",
+)
+DEFAULT_DATA_FILES = {
+    "Nexlab/fable5-agentic-coding-sft": "https://huggingface.co/datasets/Nexlab/fable5-agentic-coding-sft/resolve/main/sft_curated_full.jsonl",
+}
+
 
 def normalize_role(role: Any) -> str:
     return ROLE_MAP.get(str(role).lower(), str(role).lower())
@@ -44,7 +59,7 @@ def normalize_message(message: dict[str, Any]) -> dict[str, Any] | None:
 
     normalized: dict[str, Any] = {"role": role, "content": content}
     for key in ("tool_calls", "tool_call_id", "name"):
-        if key in message:
+        if message.get(key) is not None:
             normalized[key] = message[key]
     return normalized
 
@@ -72,6 +87,18 @@ def normalize_messages(value: Any) -> list[dict[str, Any]] | None:
     if has_user and has_assistant:
         return messages
     return None
+
+
+def has_blocked_content(messages: list[dict[str, Any]]) -> bool:
+    for message in messages:
+        content = str(message.get("content", "")).lower()
+        if any(blocked in content for blocked in BLOCKED_SUBSTRINGS):
+            return True
+        for tool_call in message.get("tool_calls", []) or []:
+            text = json.dumps(tool_call, ensure_ascii=False).lower()
+            if any(blocked in text for blocked in BLOCKED_SUBSTRINGS):
+                return True
+    return False
 
 
 def row_to_messages(row: dict[str, Any], text_column: str | None = None) -> list[dict[str, Any]] | None:
@@ -115,6 +142,7 @@ def main() -> None:
     parser.add_argument("--dataset", default="Nexlab/fable5-agentic-coding-sft")
     parser.add_argument("--config", help="Optional dataset config")
     parser.add_argument("--split", default="train")
+    parser.add_argument("--data-file", help="Optional JSONL path or URL to bypass dataset metadata")
     parser.add_argument("--output-dir", default="data/processed/fable5")
     parser.add_argument("--max-examples", type=int, default=20000)
     parser.add_argument("--validation-ratio", type=float, default=0.02)
@@ -122,13 +150,20 @@ def main() -> None:
     parser.add_argument("--text-column", help="Fallback single text column; prefer structured columns when possible")
     args = parser.parse_args()
 
-    ds = load_dataset(args.dataset, args.config, split=args.split, streaming=True)
+    data_file = args.data_file or DEFAULT_DATA_FILES.get(args.dataset)
+    if data_file:
+        ds = load_dataset("json", data_files={args.split: data_file}, split=args.split, streaming=True)
+    else:
+        ds = load_dataset(args.dataset, args.config, split=args.split, streaming=True)
     examples: list[dict[str, Any]] = []
     skipped = 0
 
     for row in ds:
         messages = row_to_messages(row, args.text_column)
         if not messages:
+            skipped += 1
+            continue
+        if has_blocked_content(messages):
             skipped += 1
             continue
         examples.append({"messages": messages})

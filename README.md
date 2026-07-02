@@ -36,6 +36,8 @@ This is enough for conservative 4-bit QLoRA on a 7B model. Start with sequence l
 
 ## Setup
 
+Python 3.10 or 3.11 is preferred for Unsloth. The system currently has Python 3.12, which may work for some packages but is more likely to hit compatibility issues with training libraries.
+
 Create a virtual environment:
 
 ```bash
@@ -44,13 +46,27 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 ```
 
-Install PyTorch first using the current Unsloth install guidance for your CUDA driver, then install this repo's dependencies:
+For dataset inspection and conversion only:
+
+```bash
+pip install -r requirements-data.txt
+```
+
+For training, install PyTorch/Unsloth using the current Unsloth guidance for your CUDA driver, or install this repo's training dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
 If Unsloth publishes a newer install command for your CUDA/PyTorch combination, prefer the official command from `https://docs.unsloth.ai/`.
+
+Check the environment:
+
+```bash
+python scripts/check_env.py
+```
+
+The full training install is large because it includes PyTorch, CUDA runtime wheels, Triton, xFormers, bitsandbytes, and Unsloth.
 
 ## Dataset Discovery
 
