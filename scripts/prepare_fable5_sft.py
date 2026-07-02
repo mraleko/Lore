@@ -101,6 +101,15 @@ def has_blocked_content(messages: list[dict[str, Any]]) -> bool:
     return False
 
 
+def message_chars(messages: list[dict[str, Any]]) -> int:
+    total = 0
+    for message in messages:
+        total += len(str(message.get("content", "")))
+        for tool_call in message.get("tool_calls", []) or []:
+            total += len(json.dumps(tool_call, ensure_ascii=False))
+    return total
+
+
 def row_to_messages(row: dict[str, Any], text_column: str | None = None) -> list[dict[str, Any]] | None:
     if text_column:
         text = row.get(text_column)
@@ -148,6 +157,7 @@ def main() -> None:
     parser.add_argument("--validation-ratio", type=float, default=0.02)
     parser.add_argument("--seed", type=int, default=3407)
     parser.add_argument("--text-column", help="Fallback single text column; prefer structured columns when possible")
+    parser.add_argument("--max-chars", type=int, default=24000, help="Skip examples with more approximate message characters")
     args = parser.parse_args()
 
     data_file = args.data_file or DEFAULT_DATA_FILES.get(args.dataset)
@@ -164,6 +174,9 @@ def main() -> None:
             skipped += 1
             continue
         if has_blocked_content(messages):
+            skipped += 1
+            continue
+        if args.max_chars and message_chars(messages) > args.max_chars:
             skipped += 1
             continue
         examples.append({"messages": messages})

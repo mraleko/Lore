@@ -117,6 +117,16 @@ python scripts/prepare_fable5_sft.py \
   --max-examples 2000
 ```
 
+If training becomes slow because of long tool traces, use the faster bounded split:
+
+```bash
+python scripts/prepare_fable5_sft.py \
+  --dataset Nexlab/fable5-agentic-coding-sft \
+  --output-dir data/processed/fable5_2k_fast \
+  --max-examples 2000 \
+  --max-chars 12000
+```
+
 The output format is one JSON object per line:
 
 ```json
@@ -142,6 +152,12 @@ python scripts/train_unsloth_lora.py \
   --output-dir models/qwen25-coder-7b-fable5-2k-lora
 ```
 
+Faster bounded run:
+
+```bash
+python scripts/train_unsloth_lora.py --config configs/qwen25_coder_7b_lora_2k.json
+```
+
 Smoke-test the training stack with a tiny generated sample before running a full job:
 
 ```bash
@@ -165,3 +181,11 @@ The default config is intentionally conservative for 8 GB VRAM.
 ## Benchmark
 
 See `docs/benchmarks.md` for the baseline/fine-tuned evaluation flow.
+
+See `docs/export.md` for exporting a trained LoRA adapter to GGUF/Ollama.
+
+Current fine-tuned Ollama model name:
+
+```text
+qwen25-coder-7b-fable5-2k-fast-q8
+```

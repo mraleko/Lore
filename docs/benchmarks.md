@@ -50,6 +50,15 @@ First local smoke result:
 | --- | ---: | --- | ---: | ---: | ---: | ---: | --- |
 | `2026-07-02-01-41-06--qwen25-coder-7b-q8-smoke-1` | 1 | `ollama_chat/qwen2.5-coder:7b-instruct-q8_0` | 0.0% | 0.0% | 100.0% | 146.2 | Harness works; one-task smoke failed on `rest-api` |
 
+Small matched `rest-api` comparison:
+
+| Run | Test Cases | Model | Pass Rate 1 | Pass Rate 2 | Well-Formed | User Asks | Seconds/Case | Notes |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `2026-07-02-05-38-14--qwen25-coder-7b-q8-rest-api` | 3 | `ollama_chat/qwen2.5-coder:7b-instruct-q8_0` | 0.0% | 0.0% | 100.0% | 2 | 160.3 | Base Q8 model |
+| `2026-07-02-05-27-21--qwen25-coder-7b-fable5-2k-fast-rest-api` | 3 | `ollama_chat/qwen25-coder-7b-fable5-2k-fast-q8` | 0.0% | 0.0% | 100.0% | 0 | 144.9 | First Fable 5 LoRA export |
+
+This matched smoke set is too small to judge benchmark improvement. It confirms the exported model is benchmarkable, but a larger sample is needed.
+
 Keep benchmark data completely out of the training set. Do not train on aider benchmark tasks if the score is meant to represent real improvement.
 
 ## Secondary Benchmarks
@@ -78,3 +87,11 @@ Create a simple table for each run:
 | external-reference | qwen2.5-coder:7b-instruct-q8_0 | none | 0 | n/a | n/a | aider old edit benchmark | 51.9% | public leaderboard reference, not local baseline |
 | local-baseline | Qwen2.5-Coder-7B-Instruct | none | 0 | n/a | n/a | aider | TBD | run locally before training |
 | fable5-sft-v1 | Qwen2.5-Coder-7B + LoRA | Fable 5 | TBD | 4096 | 16 | aider | TBD | first pass |
+
+Training note: the first `fable5_2k` run with `max_seq_length=4096` reached step `156/245` before the 2-hour command timeout and only saved `checkpoint-100`. Some long tool-trace examples made step times impractical.
+
+Completed training run:
+
+| Run | Dataset | Train | Validation | Seq Len | Steps | Runtime | Train Loss | Eval Loss | Output |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `fable5-2k-fast-lora` | `fable5_2k_fast` | 1960 | 40 | 2048 | 245 | 2711s | 1.373 | 1.384 | `models/qwen25-coder-7b-fable5-2k-fast-lora` |
