@@ -61,6 +61,54 @@ This matched smoke set is too small to judge benchmark improvement. It confirms 
 
 Keep benchmark data completely out of the training set. Do not train on aider benchmark tasks if the score is meant to represent real improvement.
 
+## Old aider Edit Benchmark
+
+For leaderboard-comparable local runs, use the old aider `v0.56.0` harness in `benchmarks/aider-v0.56.0` and the pinned Exercism Python corpus in `benchmarks/aider-v0.56.0/tmp.benchmarks/exercism-python`. This corpus has exactly 133 tasks, matching the public old leaderboard row for `qwen2.5-coder:7b-instruct-q8_0`.
+
+The old Docker image needs a scoped build workaround because the build context does not include `.git` metadata for `setuptools_scm`:
+
+```dockerfile
+ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_AIDER_CHAT=0.56.0
+```
+
+The benchmark checkout is a git worktree, so Docker runs also need the parent aider `.git` metadata mounted at the same absolute path used by the worktree `.git` pointer:
+
+```bash
+docker run --rm \
+  --add-host=host.docker.internal:host-gateway \
+  -v "$PWD":/aider \
+  -v "$PWD/tmp.benchmarks":/benchmarks \
+  -v "/mnt/c/Users/MESHLICIOUS/Downloads/Fine Tune LLM/benchmarks/aider/.git":"/mnt/c/Users/MESHLICIOUS/Downloads/Fine Tune LLM/benchmarks/aider/.git":ro \
+  -e AIDER_DOCKER=1 \
+  -e AIDER_BENCHMARK_DIR=/benchmarks \
+  -e OLLAMA_API_BASE=http://host.docker.internal:11434 \
+  aider-benchmark \
+  ./benchmark/benchmark.py RUN_NAME \
+    --model ollama/MODEL_NAME \
+    --edit-format whole \
+    --threads 1 \
+    --num-tests 1 \
+    --new
+```
+
+One-case old-harness smoke results:
+
+| Run | Test Cases | Model | Pass Rate 1 | Pass Rate 2 | Well-Formed | User Asks | Seconds/Case | Notes |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `2026-07-08-23-36-16--smoke-base-qwen25-7b-q8` | 1 | `ollama/qwen2.5-coder:7b-instruct-q8_0` | 0.0% | 0.0% | 100.0% | 0 | 59.1 | Old `v0.56.0` harness works; failed `word-count` |
+| `2026-07-08-23-38-12--smoke-ft-qwen25-7b-fable5-q8` | 1 | `ollama/qwen25-coder-7b-fable5-2k-fast-q8` | 0.0% | 0.0% | 100.0% | 0 | 75.5 | Old `v0.56.0` harness works; failed `crypto-square` |
+
+These smoke runs are setup checks only. They are not comparable model scores because each run used one randomly selected task.
+
+Full old-harness comparable result:
+
+| Run | Test Cases | Model | Pass Rate 1 | Pass Rate 2 | Well-Formed | User Asks | Test Timeouts | Seconds/Case | Notes |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| public leaderboard reference | 133 | `ollama/qwen2.5-coder:7b-instruct-q8_0` | 45.1% | 51.9% | 100.0% | n/a | n/a | n/a | aider `0.56.0`, `whole` edit format |
+| `2026-07-08-23-43-49--full-ft-qwen25-fable5-2k-fast-q8` | 133 | `ollama/qwen25-coder-7b-fable5-2k-fast-q8` | 49.6% | 54.1% | 100.0% | 11 | 3 | 51.0 | Local fine-tuned model, old aider `0.56.0`, `whole`; `commit_hash` was `6f2b064-dirty` |
+
+The fine-tuned model's full local old-harness score is `54.1%` pass rate after 2 tries, which is `+2.2` percentage points over the public `51.9%` reference row. Treat this as comparable but not identical: the run used the same old aider version, edit format, model API style, and 133-task corpus shape, but local Ollama/runtime details and the dirty benchmark worktree can still differ from the original public run.
+
 ## Secondary Benchmarks
 
 Use these as quick sanity checks:
