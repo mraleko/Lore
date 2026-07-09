@@ -143,3 +143,18 @@ Completed training run:
 | Run | Dataset | Train | Validation | Seq Len | Steps | Runtime | Train Loss | Eval Loss | Output |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | `fable5-2k-fast-lora` | `fable5_2k_fast` | 1960 | 40 | 2048 | 245 | 2711s | 1.373 | 1.384 | `models/qwen25-coder-7b-fable5-2k-fast-lora` |
+| `fable5-5k-fast-lora` | `fable5_5k_fast` | 4900 | 100 | 2048 | 613 | 3478s resumed segment | 0.586 resumed avg | 1.237 | `models/qwen25-coder-7b-fable5-5k-fast-lora` |
+
+v2 dataset search note: Hugging Face had newer Fable-related datasets after the first run, including `Glint-Research/Fable-5-traces`, `HelioAI/Fable-5-Distill-5500x`, and `WithinUsAI/fable_5_distillation_merged_cleaned_25k`. For this v2 run, `Nexlab/fable5-agentic-coding-sft` remained the practical source because it is MIT-licensed, coding-agent focused, and SFT-ready. Glint's rereleased traces are interesting but AGPL-licensed and raw trace-oriented; Helio/WithinUs samples inspected were generic reasoning/math rather than directly aligned coding-agent SFT data.
+
+The v2 `fable5_5k_fast` split was prepared with:
+
+```bash
+python scripts/prepare_fable5_sft.py \
+  --dataset Nexlab/fable5-agentic-coding-sft \
+  --output-dir data/processed/fable5_5k_fast \
+  --max-examples 5000 \
+  --max-chars 12000
+```
+
+The v2 training run hit a command timeout after checkpoint `300`, then resumed successfully from `models/qwen25-coder-7b-fable5-5k-fast-lora/checkpoint-300` and completed all `613` steps. Final checkpoint eval loss was `1.237` at step `613`.

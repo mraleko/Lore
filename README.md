@@ -158,6 +158,26 @@ Faster bounded run:
 python scripts/train_unsloth_lora.py --config configs/qwen25_coder_7b_lora_2k.json
 ```
 
+Larger v2 bounded run:
+
+```bash
+python scripts/prepare_fable5_sft.py \
+  --dataset Nexlab/fable5-agentic-coding-sft \
+  --output-dir data/processed/fable5_5k_fast \
+  --max-examples 5000 \
+  --max-chars 12000
+
+python scripts/train_unsloth_lora.py --config configs/qwen25_coder_7b_lora_5k.json
+```
+
+If a long run times out after saving a checkpoint, resume it:
+
+```bash
+python scripts/train_unsloth_lora.py \
+  --config configs/qwen25_coder_7b_lora_5k.json \
+  --resume-from-checkpoint models/qwen25-coder-7b-fable5-5k-fast-lora/checkpoint-300
+```
+
 Smoke-test the training stack with a tiny generated sample before running a full job:
 
 ```bash

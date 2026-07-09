@@ -26,6 +26,7 @@ def main() -> None:
     parser.add_argument("--output-dir", help="Override output directory")
     parser.add_argument("--max-steps", type=int, help="Override max training steps")
     parser.add_argument("--max-seq-length", type=int, help="Override max sequence length")
+    parser.add_argument("--resume-from-checkpoint", help="Resume trainer state from a checkpoint directory")
     args = parser.parse_args()
     cfg = load_config(args.config)
     for key in ("train_file", "validation_file", "output_dir", "max_steps", "max_seq_length"):
@@ -100,7 +101,7 @@ def main() -> None:
         formatting_func=formatting_prompts_func,
         args=training_args,
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
     trainer.save_model(cfg["output_dir"])
     tokenizer.save_pretrained(cfg["output_dir"])
     print(f"Saved LoRA adapter to {cfg['output_dir']}")
