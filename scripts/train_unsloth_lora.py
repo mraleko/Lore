@@ -40,22 +40,25 @@ def main() -> None:
         load_in_4bit=cfg.get("load_in_4bit", True),
     )
 
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r=cfg["lora_rank"],
-        target_modules=cfg["target_modules"],
-        lora_alpha=cfg["lora_alpha"],
-        lora_dropout=cfg.get("lora_dropout", 0.0),
-        bias="none",
-        use_gradient_checkpointing="unsloth",
-        random_state=cfg.get("seed", 3407),
-    )
+    if not getattr(model, "peft_config", None):
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r=cfg["lora_rank"],
+            target_modules=cfg["target_modules"],
+            lora_alpha=cfg["lora_alpha"],
+            lora_dropout=cfg.get("lora_dropout", 0.0),
+            bias="none",
+            use_gradient_checkpointing="unsloth",
+            random_state=cfg.get("seed", 3407),
+        )
 
     data_files = {"train": cfg["train_file"]}
     validation_file = cfg.get("validation_file")
     if validation_file and Path(validation_file).exists():
         data_files["validation"] = validation_file
     dataset = load_dataset("json", data_files=data_files)
+
+    completion_only = "prompt" in dataset["train"].column_names and "completion" in dataset["train"].column_names
 
     def format_messages(messages: list[dict[str, Any]]) -> str:
         return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
@@ -91,16 +94,20 @@ def main() -> None:
         save_strategy="steps",
         max_length=cfg["max_seq_length"],
         packing=False,
+        completion_only_loss=completion_only,
     )
 
-    trainer = SFTTrainer(
+    trainer_kwargs = dict(
         model=model,
         processing_class=tokenizer,
         train_dataset=dataset["train"],
         eval_dataset=dataset.get("validation"),
-        formatting_func=formatting_prompts_func,
         args=training_args,
     )
+    if not completion_only:
+        trainer_kwargs["formatting_func"] = formatting_prompts_func
+
+    trainer = SFTTrainer(**trainer_kwargs)
     trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
     trainer.save_model(cfg["output_dir"])
     tokenizer.save_pretrained(cfg["output_dir"])

@@ -33,6 +33,43 @@ BLOCKED_SUBSTRINGS = (
     "sk-",
     "hf_",
 )
+CODE_EDIT_KEYWORDS = (
+    "bug",
+    "debug",
+    "error",
+    "exception",
+    "fail",
+    "fix",
+    "implement",
+    "refactor",
+    "test",
+    "function",
+    "class",
+    "method",
+    "script",
+    "code",
+    "python",
+    "javascript",
+    "typescript",
+    "react",
+    "node",
+    "api",
+)
+BROAD_APP_KEYWORDS = (
+    "build me an app",
+    "create an app",
+    "make me an app",
+    "build a game",
+    "create a game",
+    "make me a game",
+    "build me a game",
+    "full app",
+    "full-stack app",
+    "entire website",
+    "make me a website",
+    "clone of",
+    "similar to rainbow six",
+)
 DEFAULT_DATA_FILES = {
     "Nexlab/fable5-agentic-coding-sft": "https://huggingface.co/datasets/Nexlab/fable5-agentic-coding-sft/resolve/main/sft_curated_full.jsonl",
 }
@@ -110,6 +147,45 @@ def message_chars(messages: list[dict[str, Any]]) -> int:
     return total
 
 
+def count_tool_calls(messages: list[dict[str, Any]]) -> int:
+    total = 0
+    for message in messages:
+        total += len(message.get("tool_calls", []) or [])
+        if message.get("role") == "tool":
+            total += 1
+    return total
+
+
+def combined_text(messages: list[dict[str, Any]]) -> str:
+    parts: list[str] = []
+    for message in messages:
+        content = message.get("content")
+        if content:
+            parts.append(str(content))
+    return "\n".join(parts).lower()
+
+
+def first_user_text(messages: list[dict[str, Any]]) -> str:
+    for message in messages:
+        if message.get("role") == "user":
+            return str(message.get("content", "")).lower()
+    return ""
+
+
+def assistant_text_chars(messages: list[dict[str, Any]]) -> int:
+    return sum(len(str(message.get("content", ""))) for message in messages if message.get("role") == "assistant")
+
+
+def has_code_edit_signal(messages: list[dict[str, Any]]) -> bool:
+    text = combined_text(messages)
+    return any(keyword in text for keyword in CODE_EDIT_KEYWORDS)
+
+
+def is_broad_generation_request(messages: list[dict[str, Any]]) -> bool:
+    text = first_user_text(messages)
+    return any(keyword in text for keyword in BROAD_APP_KEYWORDS)
+
+
 def row_to_messages(row: dict[str, Any], text_column: str | None = None) -> list[dict[str, Any]] | None:
     if text_column:
         text = row.get(text_column)
@@ -158,6 +234,9 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=3407)
     parser.add_argument("--text-column", help="Fallback single text column; prefer structured columns when possible")
     parser.add_argument("--max-chars", type=int, default=24000, help="Skip examples with more approximate message characters")
+    parser.add_argument("--code-edit-clean", action="store_true", help="Keep a stricter code-edit/debug subset")
+    parser.add_argument("--max-tool-calls", type=int, help="Skip examples with more tool calls/tool messages")
+    parser.add_argument("--max-assistant-chars", type=int, help="Skip examples with more assistant text characters")
     args = parser.parse_args()
 
     data_file = args.data_file or DEFAULT_DATA_FILES.get(args.dataset)
@@ -177,6 +256,15 @@ def main() -> None:
             skipped += 1
             continue
         if args.max_chars and message_chars(messages) > args.max_chars:
+            skipped += 1
+            continue
+        if args.max_tool_calls is not None and count_tool_calls(messages) > args.max_tool_calls:
+            skipped += 1
+            continue
+        if args.max_assistant_chars is not None and assistant_text_chars(messages) > args.max_assistant_chars:
+            skipped += 1
+            continue
+        if args.code_edit_clean and (not has_code_edit_signal(messages) or is_broad_generation_request(messages)):
             skipped += 1
             continue
         examples.append({"messages": messages})
